@@ -1,6 +1,10 @@
-# Step 6: API・UI 実装と git push
+# Step 1: API・UI 実装と git push
 
-## 6-1. バックエンド API 実装（投稿の一覧・作成・削除）
+※ **環境構築**（`環境構築/` の Step 1〜5）が完了していること。
+
+---
+
+## 1-1. バックエンド API 実装（投稿の一覧・作成・削除）
 
 ### モデル・スキーマ例（backend）
 
@@ -13,12 +17,12 @@
 ### 実装の流れ
 
 1. `main.py` に上記3エンドポイントを追加
-2. CORS で `http://localhost:3000` を許可（Step 3 の通り）
+2. CORS で `http://localhost:3000` を許可（環境構築 Step 3 の通り）
 3. `GET /posts` で JSON 配列、`POST` で作成したオブジェクト、`DELETE` で 204 を返す
 
 ---
 
-## 6-2. フロントエンド UI 実装
+## 1-2. フロントエンド UI 実装
 
 1. **トップ画面（投稿一覧）**
    - `GET /posts` を呼び、カードまたはリストで表示
@@ -33,7 +37,7 @@
 
 ---
 
-## 6-3. 動作確認チェックリスト
+## 1-3. 動作確認チェックリスト
 
 - [ ] `docker compose up` で frontend(3000) / backend(8000) が起動する
 - [ ] トップで投稿一覧が表示される
@@ -42,7 +46,7 @@
 
 ---
 
-## 6-4. GitHub に push
+## 1-4. GitHub に push
 
 ```bash
 git remote add origin https://github.com/<your-username>/<repo-name>.git
@@ -54,7 +58,7 @@ git push -u origin main
 
 ---
 
-## 6-5. ゴール再確認
+## 1-5. ゴール再確認
 
 - [ ] `docker compose up` で frontend(3000) / backend(8000) が起動する
 - [ ] Front から API を呼べる（一覧取得 / 作成 / 削除）

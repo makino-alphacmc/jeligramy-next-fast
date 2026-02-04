@@ -82,4 +82,4 @@ docker compose up --build
 - Frontend: http://localhost:3000  
 - Backend:  http://localhost:8000  
 
-両方にアクセスできれば **Step 5 完了**。次は **Step 6** で API・UI 実装と git push を行う。
+両方にアクセスできれば **環境構築は完了**。次は **実装** フォルダの手順で API・UI 実装と git push を行う。
