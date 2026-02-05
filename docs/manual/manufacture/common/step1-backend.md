@@ -13,7 +13,18 @@
 ## 1-1. 前提
 
 - Python 3.11+ がインストールされていること
-- プロジェクトルートの `backend/` で作業する
+- コマンドやファイルの編集は、カレントディレクトリを `backend/` にした状態で行うこと
+
+### コードのつながり（Step 1 の流れ）
+
+```
+requirements.txt → 依存関係
+schemas/user.py  → レスポンスの型（UserMe）。routers/auth.py で import
+routers/auth.py  → GET /api/auth/me, POST /api/auth/logout の実装。main.py で include
+main.py          → app に auth ルーターを張り、CORS を有効化。uvicorn で起動
+                  ↓
+フロント（Step 2）の fetchMe() / fetchLogout() がこの API を呼ぶ
+```
 
 ---
 
@@ -24,17 +35,19 @@
 1. `backend/requirements.txt` を作成する（存在しなければ）。
 
 ```txt
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
+# なぜ必要: このプロジェクトで使う Python パッケージを固定し、どこでも同じバージョンで動くようにする
+fastapi>=0.115.0      # 意味: Web API を書くためのフレームワーク。ルートやレスポンスを定義する
+uvicorn[standard]>=0.32.0  # 意味: FastAPI を HTTP サーバーとして動かす。--reload でコード変更時に自動再起動できる
 ```
 
 2. 仮想環境を作成し、インストールする。
 
 ```bash
+# なんのため: 他プロジェクトとパッケージを分離し、backend だけの依存にしておく
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+python3 -m venv .venv   # 意味: .venv フォルダにこのプロジェクト用の Python 環境を作る
+source .venv/bin/activate   # 意味: このターミナルで .venv 内の Python を使うようにする（Windows: .venv\Scripts\activate）
+pip install -r requirements.txt   # 意味: requirements.txt に書いたパッケージを .venv にインストールする
 ```
 
 ---
@@ -49,13 +62,16 @@ pip install -r requirements.txt
 
 ```python
 # backend/schemas/user.py
-from pydantic import BaseModel
+
+# なぜ必要: API の戻り値の形を決めておくと、型チェックと JSON 変換を自動でやってくれる。フロントも同じ形を期待できる
+from pydantic import BaseModel  # 意味: 型付きのモデルを定義し、dict との変換やバリデーションができる
 
 
 class UserMe(BaseModel):
-    id: str
-    username: str
-    avatar_url: str | None = None
+    """現在ログイン中のユーザー情報。GET /api/auth/me のレスポンス型。フロントの Header がこの形で受け取る"""
+    id: str           # 意味: ユーザーを一意に識別するID。フロントでは「本人の投稿か」の判定などに使う
+    username: str     # 意味: 画面上に表示する名前。ヘッダーアバターの横に出す
+    avatar_url: str | None = None  # 意味: プロフィール画像のURL。未設定のときは null。省略可能なのでデフォルト None
 ```
 
 ---
@@ -70,14 +86,16 @@ class UserMe(BaseModel):
 
 ```python
 # backend/routers/auth.py
+
+# なぜ必要: 認証まわりのエンドポイントを一ファイルにまとめ、main.py から include するだけでパスを張る
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+from schemas.user import UserMe  # なんのため: get_me の戻り値を UserMe 型にし、自動で JSON 化・検証する
 
-from schemas.user import UserMe
-
+# 意味: このルーターに登録するパスはすべて /api/auth のあとに続く。tags は OpenAPI のグループ名
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-# モック: 認証済みとして固定ユーザーを返す。後で Cookie/セッションに差し替え可能。
+# なぜ必要: まだログイン機能がないので、とりあえず「常にこのユーザー」を返してフロントを動かすため
+# 意味: 後で Cookie やセッションを見て本当のユーザーに差し替える
 MOCK_USER = UserMe(
     id="user-1",
     username="jeli",
@@ -87,13 +105,17 @@ MOCK_USER = UserMe(
 
 @router.get("/me", response_model=UserMe)
 def get_me():
-    """現在ユーザー取得。未認証時はモックでユーザーを返す。本番では認証ミドルウェアで 401 を返す。"""
+    """現在ユーザー取得。フロントの Header が fetchMe() で呼び、username を表示する"""
+    # なんのため: ヘッダーに「誰でログインしているか」を表示するためのデータを返す
+    # 意味: response_model=UserMe により、戻り値が UserMe の形でないと 422 になる。JSON も自動で作られる
     return MOCK_USER
 
 
 @router.post("/logout")
 def logout():
-    """ログアウト（セッション無効化）。本番では Cookie 削除等を行う。"""
+    """ログアウト。フロントのサイドメニュー「Logout」クリックで呼ばれる"""
+    # なんのため: セッションを無効にしたいという意図をサーバーに伝える。本番ではここで Cookie 削除などをする
+    # 意味: とりあえず 200 と ok: true を返し、フロントがエラーにならないようにする
     return {"ok": True}
 ```
 
@@ -107,21 +129,25 @@ def logout():
 
 ```python
 # backend/main.py
+
+# なぜ必要: uvicorn が「どのアプリを動かすか」の入口。ここにルーターを張ると HTTP でエンドポイントが公開される
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware  # なんのため: 別オリジン（フロント）から fetch できるようにする
+from routers import auth  # 意味: auth.py で定義した GET /me, POST /logout をアプリに追加する
 
-from routers import auth
+app = FastAPI(title="jeligramy API")  # 意味: FastAPI のアプリ本体。ここにミドルウェアやルーターを足していく
 
-app = FastAPI(title="jeligramy API")
-
+# なぜ必要: ブラウザは「別オリジン（例: localhost:3000）から localhost:8000 へ」の fetch をデフォルトでブロックする
+# この設定がないとフロントから API を呼べない
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["http://localhost:3000"],  # 意味: このオリジンからのリクエストを許可する。本番では差し替え
+    allow_credentials=True,   # 意味: Cookie の送受信を許可する（将来ログインでセッション Cookie を使うとき用）
+    allow_methods=["*"],      # 意味: GET, POST などすべてのメソッドを許可
+    allow_headers=["*"],      # 意味: すべてのリクエストヘッダーを許可
 )
 
+# なんのため: auth ルーターをアプリに組み込む。prefix が /api/auth なので、実際のパスは /api/auth/me と /api/auth/logout
 app.include_router(auth.router)
 ```
 
@@ -136,9 +162,11 @@ app.include_router(auth.router)
 1. バックエンドを起動する。
 
 ```bash
+# なんのため: バックエンドを HTTP サーバーとして起動し、フロントや curl からアクセスできるようにする
 cd backend
-source .venv/bin/activate
+source .venv/bin/activate   # 意味: このターミナルで backend 用の Python を使う
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# 意味: main.py の app を読み込み、port 8000 で待ち受ける。--reload はファイル変更で自動再起動。--host 0.0.0.0 は外から接続可
 ```
 
 2. ブラウザまたは curl で確認する。
@@ -162,8 +190,9 @@ curl -s -X POST http://localhost:8000/api/auth/logout
 1. 依存関係に pytest と httpx を追加する。`backend/requirements.txt` に以下を追記する。
 
 ```txt
-pytest>=8.0.0
-httpx>=0.27.0
+# なぜ必要: 単体テストを書いて実行するため。サーバーを立てずに API の戻り値を検証できる。
+pytest>=8.0.0    # 意味: テストランナー。test_ で始まる関数を実行し、assert が失敗したらレポートする
+httpx>=0.27.0    # 意味: TestClient が内部で使う HTTP クライアント。FastAPI が依存している
 ```
 
 2. `pip install -r requirements.txt` で再インストールする。
@@ -174,38 +203,41 @@ httpx>=0.27.0
 
 ```python
 # backend/tests/test_auth.py
-from fastapi.testclient import TestClient
+# なぜ必要: サーバーを起動しなくても「GET /api/auth/me と POST /api/auth/logout が仕様どおり返すか」を自動で確認するため。実装を変えたときに壊れていないかすぐ分かる。
+# なんのため: フロントの fetchMe / fetchLogout が前提としているレスポンスの形（status 200、body のキー）が変わっていないことを保証する。
 
-from main import app
+from fastapi.testclient import TestClient  # 意味: 実際に TCP で HTTP を飛ばさず、FastAPI アプリに直接リクエストを渡してレスポンスを返すクライアント。
+from main import app  # 意味: 1-5 で定義した app。auth ルーターが include 済みなので /api/auth/me などが有効。
 
-client = TestClient(app)
+client = TestClient(app)  # 意味: この client で client.get(...) や client.post(...) を呼ぶと、app が処理してレスポンスが返る。
 
 
 def test_get_me():
-    """GET /api/auth/me が 200 で id, username, avatar_url を返す"""
-    res = client.get("/api/auth/me")
-    assert res.status_code == 200
-    data = res.json()
-    assert "id" in data
+    # なぜ必要: get_me() が 200 と id/username/avatar_url を返すことを保証する。フロントの fetchMe はこの形を前提にしている。
+    res = client.get("/api/auth/me")  # 意味: GET /api/auth/me を送ったつもりで app を実行する。
+    assert res.status_code == 200     # 意味: HTTP ステータスが 200 であること。そうでなければテスト失敗。
+    data = res.json()                 # 意味: レスポンス body を JSON として解釈した dict。
+    assert "id" in data               # 意味: フロントが使うキーが含まれていること。
     assert "username" in data
     assert "avatar_url" in data
-    assert data["username"] == "jeli"
+    assert data["username"] == "jeli" # 意味: モックユーザーと一致すること。別の値に変えるとテストが落ちて気づける。
 
 
 def test_post_logout():
-    """POST /api/auth/logout が 200 で ok: true を返す"""
+    # なぜ必要: logout() が 200 と ok: true を返すことを保証する。フロントの fetchLogout は 200 でれば成功とみなす。
     res = client.post("/api/auth/logout")
     assert res.status_code == 200
     data = res.json()
-    assert data.get("ok") is True
+    assert data.get("ok") is True     # 意味: body に "ok": true が含まれること。
 ```
 
 5. `backend/` で pytest を実行する。
 
 ```bash
-cd backend
+# なんのため: テストを実行し、GET /me と POST /logout が仕様どおりか確認する
+cd backend              # 意味: カレントを backend に。pytest が main を import するのでここにいる必要がある
 source .venv/bin/activate
-pytest tests/ -v
+pytest tests/ -v        # 意味: tests/ 以下の test_*.py を実行。-v でテスト名を表示する
 ```
 
 6. 2 件とも PASS することを確認する。
