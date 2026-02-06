@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from routers import auth
 
 app = FastAPI(title="Jeligramy")
 
@@ -11,6 +12,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-async def root():
-    return {"message": "APIは機能しています"}
+app.include_router(auth.router)
