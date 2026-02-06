@@ -98,7 +98,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 # 意味: 後で Cookie やセッションを見て本当のユーザーに差し替える
 MOCK_USER = UserMe(
     id="user-1",
-    username="jeli",
+    username="槇野ジェリエル",
     avatar_url=None,
 )
 
@@ -135,7 +135,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # なんのため: 別オリジン（フロント）から fetch できるようにする
 from routers import auth  # 意味: auth.py で定義した GET /me, POST /logout をアプリに追加する
 
-app = FastAPI(title="jeligramy API")  # 意味: FastAPI のアプリ本体。ここにミドルウェアやルーターを足していく
+app = FastAPI(title="Jeligramy")  # 意味: FastAPI のアプリ本体。ここにミドルウェアやルーターを足していく
 
 # なぜ必要: ブラウザは「別オリジン（例: localhost:3000）から localhost:8000 へ」の fetch をデフォルトでブロックする
 # この設定がないとフロントから API を呼べない
@@ -173,7 +173,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ```bash
 curl -s http://localhost:8000/api/auth/me
-# 期待: {"id":"user-1","username":"jeli","avatar_url":null}
+# 期待: {"id":"user-1","username":"槇野ジェリエル","avatar_url":null}
 
 curl -s -X POST http://localhost:8000/api/auth/logout
 # 期待: {"ok":true}
@@ -203,7 +203,7 @@ httpx>=0.27.0    # 意味: TestClient が内部で使う HTTP クライアント
 
 ```python
 # backend/tests/test_auth.py
-# なぜ必要: サーバーを起動しなくても「GET /api/auth/me と POST /api/auth/logout が仕様どおり返すか」を自動で確認するため。実装を変えたときに壊れていないかすぐ分かる。
+# なぜ必要: サーバーを起動しなくても「GET /api/auth/me と POST /api/auth/logout が仕様どおり返すか」を自動で確認するため。
 # なんのため: フロントの fetchMe / fetchLogout が前提としているレスポンスの形（status 200、body のキー）が変わっていないことを保証する。
 
 from fastapi.testclient import TestClient  # 意味: 実際に TCP で HTTP を飛ばさず、FastAPI アプリに直接リクエストを渡してレスポンスを返すクライアント。
@@ -220,25 +220,27 @@ def test_get_me():
     assert "id" in data               # 意味: フロントが使うキーが含まれていること。
     assert "username" in data
     assert "avatar_url" in data
-    assert data["username"] == "jeli" # 意味: モックユーザーと一致すること。別の値に変えるとテストが落ちて気づける。
+    assert data["username"] == "槇野ジェリエル"  # 意味: モックユーザーと一致すること。別の値に変えるとテストが落ちて気づける。
 
 
 def test_post_logout():
-    # なぜ必要: logout() が 200 と ok: true を返すことを保証する。フロントの fetchLogout は 200 でれば成功とみなす。
+    # なぜ必要: logout() が 200 と ok: true を返すことを保証する。フロントの fetchLogout は 200 であれば成功とみなす。
     res = client.post("/api/auth/logout")
     assert res.status_code == 200
     data = res.json()
-    assert data.get("ok") is True     # 意味: body に "ok": true が含まれること。
+    assert data.get("ok") is True     # 意味: body に "ok": true が含まれること。"ok" が無いときは None が返り AssertionError で分かる。
 ```
 
 5. `backend/` で pytest を実行する。
 
 ```bash
 # なんのため: テストを実行し、GET /me と POST /logout が仕様どおりか確認する
-cd backend              # 意味: カレントを backend に。pytest が main を import するのでここにいる必要がある
+cd backend                    # 意味: カレントを backend にしておく
 source .venv/bin/activate
-pytest tests/ -v        # 意味: tests/ 以下の test_*.py を実行。-v でテスト名を表示する
+python -m pytest tests/ -v    # 意味: tests/ 以下の test_*.py を実行。-v でテスト名を表示。python -m にすると backend が sys.path に入り main を import できる
 ```
+
+**注意:** カレントディレクトリは必ず `backend/` にすること。`tests/` の中で `pytest` だけ実行すると `ModuleNotFoundError: No module named 'main'` になる（main.py が backend 直下にあるため）。
 
 6. 2 件とも PASS することを確認する。
 
@@ -250,6 +252,6 @@ pytest tests/ -v        # 意味: tests/ 以下の test_*.py を実行。-v で�
 |------|----------------|
 | ModuleNotFoundError: schemas / routers | カレントディレクトリが `backend/` であること。`uvicorn main:app` を `backend/` で実行する。 |
 | CORS エラー | `main.py` の `allow_origins` にフロントのオリジン（例: http://localhost:3000）が含まれていること。 |
-| pytest で main を import できない | テスト実行時のカレントディレクトリを `backend/` にすること。`pytest tests/` を `backend/` で実行する。 |
+| pytest で main を import できない | カレントを `backend/` にして `python -m pytest tests/ -v` で実行する。`tests/` 内で `pytest` だけ実行すると main が見つからない。 |
 
 以上（1-7 の単体テスト含む）が完了したら **Step 2（フロントエンド）** に進む。
