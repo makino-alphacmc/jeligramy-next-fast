@@ -6,6 +6,7 @@ export async function fetchMe(): Promise<{
 	avatar_url: string | null
 } | null> {
 	const res = await fetch(`${BASE}/api/auth/me`, { credentials: 'include' })
+	// 意味: GET で /api/auth/me を呼ぶ。credentials: "include" で Cookie があれば送る（将来のセッション用）。
 	if (!res.ok) return null
 	return res.json()
 }
