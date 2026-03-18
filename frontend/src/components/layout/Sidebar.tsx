@@ -24,18 +24,17 @@ export function Sidebar() {
 						{label}
 					</Link>
 				))}
-				<hr className='my-2 border-sidebar-border'>
-					<button
-						type='button'
-						className='flex h-12 w-full items-center px-4 text-left text-sm font-medium text-muted-foreground hover:text-foreground'
-						onClick={async () => {
-							await fetchLogout()
-							window.location.href = '/'
-						}}
-					>
-						Logout
-					</button>
-				</hr>
+				<hr className='my-2 border-sidebar-border' />
+				<button
+					type='button'
+					className='flex h-12 w-full items-center px-4 text-left text-sm font-medium text-muted-foreground hover:text-foreground'
+					onClick={async () => {
+						await fetchLogout()
+						window.location.href = '/'
+					}}
+				>
+					Logout
+				</button>
 			</nav>
 		</aside>
 	)
